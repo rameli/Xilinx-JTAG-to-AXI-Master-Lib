@@ -249,3 +249,149 @@ proc disp_mem {addr len {hw_axi_num ""} args} {
 }
 
 
+proc qem_spi_init {} {
+    set AXI_SPI_BASE_ADDR 44A00000
+    set SPI_RR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 40]
+    set SPI_CR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 60]
+    set SPI_SS [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 70]
+
+    wr $SPI_RR 0000000A
+    wr $SPI_CR 000000EE
+    wr $SPI_SS 00000001
+
+
+    set AXI_SPI_BASE_ADDR 44A10000
+    set SPI_RR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 40]
+    set SPI_CR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 60]
+    set SPI_SS [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 70]
+
+    wr $SPI_RR 0000000A
+    wr $SPI_CR 000000EE
+    wr $SPI_SS 00000001
+}
+
+
+proc qem_adc_reset {} {
+    set AXI_GPO_BASE_ADDR 40000000
+    wr $AXI_GPO_BASE_ADDR 00000000
+    wr $AXI_GPO_BASE_ADDR 00000001
+    wr $AXI_GPO_BASE_ADDR 00000000
+}
+
+
+proc qem_adc_reg_write {ads4128_reg val} {
+    set AXI_SPI_BASE_ADDR 44A00000
+    set SPI_DT [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 68]
+    set SPI_DR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 6C]
+    set SPI_SS [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 70]
+
+    set spi_write_val [format %8.8x [expr 256*"0x$ads4128_reg" + "0x$val"]]
+    wr $SPI_SS 00000000
+    wr $SPI_DT $spi_write_val
+    wr $SPI_SS 00000001
+    rd $SPI_DR 1
+
+    set val [format %2.2X 0x$val]
+    puts "Writing ADC Reg 0x$ads4128_reg: $val"
+}
+
+proc qem_adc_reg_read {ads4128_reg} {
+    set AXI_SPI_BASE_ADDR 44A00000
+    set SPI_DT [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 68]
+    set SPI_DR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 6C]
+    set SPI_SS [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 70]
+
+    # Set Read Mode
+    set spi_write_val 00000001
+    wr $SPI_SS 00000000
+    wr $SPI_DT $spi_write_val
+    wr $SPI_SS 00000001
+    rd $SPI_DR 1
+
+
+
+    set spi_write_val [format %8.8x [expr 256*"0x$ads4128_reg"]]
+    wr $SPI_SS 00000000
+    wr $SPI_DT $spi_write_val
+    wr $SPI_SS 00000001
+    set spi_read_val [rd $SPI_DR 1]
+
+
+
+    set spi_write_val 00000000
+    wr $SPI_SS 00000000
+    wr $SPI_DT $spi_write_val
+    wr $SPI_SS 00000001
+    rd $SPI_DR 1
+
+    set spi_read_val [format %8.8X 0x$spi_read_val]
+    set spi_read_val [format %2.2x [expr 0x$spi_read_val & 0xFF ]]
+    puts "Reading ADC Reg 0x$ads4128_reg: $spi_read_val"
+}
+
+proc qem_dac_val_write {val} {
+    set AXI_SPI_BASE_ADDR 44A10000
+    set SPI_DT [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 68]
+    set SPI_DR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 6C]
+    set SPI_SS [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 70]
+
+
+    set dac_val [expr 0x$val & 0xFF ]
+
+    set spi_write_val [format %8.8x [expr (2**6)*"$dac_val"]]
+    wr $SPI_SS 00000000
+    wr $SPI_DT $spi_write_val
+    wr $SPI_SS 00000001
+    rd $SPI_DR 1
+
+    puts "Writing DAC : $dac_val"
+}
+
+proc qem_dac_pull_down_1k {} {
+    set AXI_SPI_BASE_ADDR 44A10000
+    set SPI_DT [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 68]
+    set SPI_DR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 6C]
+    set SPI_SS [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 70]
+
+
+    set spi_write_val [format %8.8x [expr (2**14)]]
+    wr $SPI_SS 00000000
+    wr $SPI_DT $spi_write_val
+    wr $SPI_SS 00000001
+    rd $SPI_DR 1
+
+    puts "Writing DAC : 1K Pull-Down"
+}
+
+
+proc qem_dac_pull_down_100k {} {
+    set AXI_SPI_BASE_ADDR 44A10000
+    set SPI_DT [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 68]
+    set SPI_DR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 6C]
+    set SPI_SS [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 70]
+
+
+    set spi_write_val [format %8.8x [expr (2**15)]]
+    wr $SPI_SS 00000000
+    wr $SPI_DT $spi_write_val
+    wr $SPI_SS 00000001
+    rd $SPI_DR 1
+
+    puts "Writing DAC : 100K Pull-Down"
+}
+
+proc qem_dac_high_z {} {
+    set AXI_SPI_BASE_ADDR 44A10000
+    set SPI_DT [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 68]
+    set SPI_DR [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 6C]
+    set SPI_SS [hex_offset_from_hex_base $AXI_SPI_BASE_ADDR 70]
+
+
+    set spi_write_val [format %8.8x [expr (2**15 + 2**14)]]
+    wr $SPI_SS 00000000
+    wr $SPI_DT $spi_write_val
+    wr $SPI_SS 00000001
+    rd $SPI_DR 1
+
+    puts "Writing DAC : High-Z"
+}
